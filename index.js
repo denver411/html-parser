@@ -10,7 +10,7 @@ const createNode = (tag = 'div', className = undefined, content = []) =>
         content
       };
 
-const getTagNameAndClass = str => {
+const getFirstTagNameAndClass = str => {
   if (str.charAt(0) !== '<') {
     return;
   }
@@ -38,11 +38,11 @@ const getTagChildren = str => {
   return str.slice(childrenStart + 1, childrenEnd);
 };
 
+const splitHTMLString = str => str.match(/(<.+?>)|(<\/\w+?>)|([\w- \.\!]+)/g);
+
 const parseChildren = str => {
-  const tags = str.match(
-    /(&[A-Za-z]+?;)|(<.+?>)|(<.+?\/>)|(<\/\w+>)|([\w- \.\!]+)|([ ~!@#$%^&*()+=?:;"{}\[\]|,.\\/]+)/g
-  );
-  console.log(str, tags);
+  const tagChildrenStr = getTagChildren(str);
+  const tags = splitHTMLString(tagChildrenStr);
 
   let count = 0;
   let childStr = '';
@@ -65,17 +65,21 @@ const parseChildren = str => {
   return children;
 };
 
+const isTag = str => htmlStr.search(/\</) !== 0;
+
 const parse = htmlStr => {
   if (htmlStr.search(/\</) !== 0) {
     return htmlStr;
   }
-  const { tagName, className } = getTagNameAndClass(htmlStr);
-  const tagChildren = parseChildren(getTagChildren(htmlStr));
+  const { tagName, className } = getFirstTagNameAndClass(htmlStr);
+  const tagChildren = parseChildren(htmlStr);
 
   return createNode(tagName, className, tagChildren.map(parse));
 };
 
 const htmlString =
-  '<html lang="ru"><head><title>Document</title></head><body><div class="welcome"><div class="container"><div class="welcome__info"><div class="welcome__main"><span class="welcome__label">Hello! My name is Stas Melnikov</span><p>Im a junior front end developer with a passion for design. I loveCSS and cats. Great to meet you!</p></div><div class="welcome__footer"><a href="#0" class="welcome__link">Download resume</a><a href="#0" class="welcome__link">Write to me</a></div></div></div></div></body></html>';
+  '<html lang="ru"><head><title>Document</title></head><body><div class="welcome"><div class="container"><div class="welcome__info"><div class="welcome__main"><span class="welcome__label">Hello! My 1st name is Stas Melnikov</span><p>I am a junior front end developer with a passion for design. I loveCSS and cats. Great to meet you!</p></div><div class="welcome__footer"><a href="#0" class="welcome__link">Download resume</a><a href="#0" class="welcome__link">Write to me</a></div></div></div></div></body></html>';
 
-parse(htmlString);
+const res = parse(htmlString);
+
+console.log(JSON.stringify(res));
