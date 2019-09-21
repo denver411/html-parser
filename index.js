@@ -15,9 +15,28 @@ const parse = htmlStr => {
     throw new Error('Argument is not a string or empty');
   }
 
-  const result = { root: [] };
+  const result = {
+    children: [],
+    getElementsByClassName: function(name) {
+      const findNode = (name, nodes) => {
+        if (!Array.isArray(nodes)) {
+          return null;
+        }
+
+        return nodes.filter(el => el.class != null && el.class.includes(name))
+          .length > 0
+          ? nodes.filter(el => el.class.includes(name))
+          : nodes.reduce((acc, item) => {
+              const res = findNode(name, item.content) || [];
+              return res.length > 0 ? [...acc, ...res] : acc;
+            }, []);
+      };
+
+      return findNode(name, this.children);
+    }
+  };
   const state = {
-    path: 'root', // current level
+    path: 'children', // current level
     symbols: [], // stack for checking pairs inside tag
     nodes: [], // stack for checking tags pairs
     tag: { start: 0, end: 0, type: 'open' }, // tag name index
@@ -64,9 +83,9 @@ const parse = htmlStr => {
           }
           state.tag.type = 'open';
           state.path =
-            state.path !== 'root'
+            state.path !== 'children'
               ? state.path.slice(0, state.path.lastIndexOf('.') - 2)
-              : 'root';
+              : 'children';
         } else {
           state.path += `.${current.length - 1}.content`;
         }
@@ -139,14 +158,16 @@ const parse = htmlStr => {
         }
         break;
       default:
-        console.log('nothing changed');
     }
-    console.log(htmlStr[i], state, JSON.stringify(result));
+    // console.log(htmlStr[i], state, JSON.stringify(result));
   }
   return result;
 };
 
 const testData =
-  '<html lang="ru" class="root root_1"><head><title>Document number one</title></head><body><div class="welcome"><div class="container"><div class="welcome__info"><div class="welcome__main"><span class="welcome__label">Hello! My 1st name is Batman</span><p>I am a junior front end developer with a passion for design. I loveCSS and cats. Great to meet you!</p></div><div class="welcome__footer"><a href="#0" class="welcome__link">Download resume</a><a href="#0" class="welcome__link">Write to me</a></div></div></div></div></body></html>';
+  '<html class="super-class" lang="ru"><head><title>Document</title></head><body><div class="container"><section class="section"><header class="section__header"><span class="section__description">What I do</span><h2 class="title section__title">My Services</h2></header><div class="section__body"><article class="post"><div class="post__content"><h3 class="title post__name">Wedding Photography</h3></div></article><article class="post"><div class="post__content"><h3 class="title post__name">Portrait Photography</h3></div></article><article class="post"><div class="post__content"><h3 class="title post__name">Families Photography</h3></div></article><article class="post"><div class="post__content"><h3 class="title post__name">Children Photography</h3></div></article></div></section>  </div></body></html>';
 
-parse(testData);
+const res = parse(testData);
+console.log(JSON.stringify(res.getElementsByClassName('title')));
+
+// console.log(JSON.stringify(res));
