@@ -1,0 +1,40 @@
+{
+  "name": "html_parser",
+  "version": "0.0.3",
+  "description": "",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "webpack-dev-server --mode development",
+    "build": "webpack --mode production",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/denver411/html-parser.git"
+  },
+  "author": "denver411",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/denver411/html-parser/issues"
+  },
+  "homepage": "https://github.com/denver411/html-parser#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.6.0",
+    "@babel/core": "^7.6.0",
+    "@babel/preset-env": "^7.6.0",
+    "babel-jest": "^24.9.0",
+    "babel-loader": "^8.0.6",
+    "eslint": "^6.4.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.18.2",
+    "html-loader": "^0.5.5",
+    "html-webpack-plugin": "^3.2.0",
+    "jest": "^24.9.0",
+    "webpack": "^4.40.2",
+    "webpack-cli": "^3.3.9",
+    "webpack-dev-server": "^3.8.1"
+  },
+  "dependencies": {
+    "@babel/polyfill": "^7.6.0"
+  }
+}
