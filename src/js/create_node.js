@@ -1,13 +1,15 @@
-const createNode = (tag = '', className = undefined, content = []) =>
-  className == null
-    ? {
-        tag,
-        content,
-      }
-    : {
-        tag,
-        className,
-        content,
-      };
+const createNode = (tag = '', className = undefined, content = []) => {
+  if (className == null) {
+    return {
+      tag,
+      content,
+    };
+  }
+  return {
+    tag,
+    className,
+    content,
+  };
+};
 
 export default createNode;

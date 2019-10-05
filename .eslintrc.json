@@ -1,19 +1,36 @@
 {
-    "env": {
-        "browser": true,
-        "es6": true
-    },
     "extends": [
-        "airbnb-base"
+        "airbnb-base",
+        "prettier",
+        "plugin:jest/recommended"
     ],
+    "plugins": ["prettier", "jest"],
+    "parser": "babel-eslint",
     "globals": {
-        "Atomics": "readonly",
-        "SharedArrayBuffer": "readonly"
+        "document": true,
+        "window": true
     },
-    "parserOptions": {
-        "ecmaVersion": 2018,
-        "sourceType": "module"
+    "env": {
+        "browser": true
     },
     "rules": {
+        "prettier/prettier": "error",
+        "no-unused-expressions": "off",
+        "no-return-assign": "off",
+        "no-case-declarations": "off",
+        "no-sequences": "off",
+        "no-console": ["warn", { "allow": ["warn", "error"] }],
+        "import/no-unresolved": "off",
+        "import/prefer-default-export": "off",
+        "react/destructuring-assignment": "off",
+        "jsx-a11y/anchor-is-valid": "off",
+        "react/no-array-index-key": "off",
+        "curly": 2,
+        "import/no-extraneous-dependencies": [
+            "error",
+            {
+                "devDependencies": true
+            }
+        ]
     }
 }

@@ -1,146 +1,156 @@
 import createNode from './create_node';
+import getCurrent from './get_current_node';
+import Symbols from './symbols';
+import getElementsByClassName from './get_elements_by_class_name';
 
-const parse = htmlStr => {
-  if (htmlStr === '' || typeof htmlStr !== 'string') {
-    throw new Error('Argument is not a string or empty');
-  }
-
+const Parser = () => {
   const result = {
     children: [],
-    getElementsByClassName(name) {
-      const findNode = (className, nodes) => {
-        if (!Array.isArray(nodes)) {
-          return null;
+    getElementsByClassName,
+  };
+
+  const symbols = Symbols();
+
+  const state = {
+    nodes: [], // stack for checking tag pairs
+    tagType: 'open', // tag type open/close
+    namePos: { start: 0, end: 0 }, // class/tag name index
+    gapPos: 0,
+    mode: '', // type of parsing (tag/class/content)
+  };
+
+  let current = result.children;
+
+  const updateCurrent = () => {
+    current = getCurrent(state.nodes, result.children);
+  };
+
+  return {
+    parse(str) {
+      const htmlStr = str.trim();
+      if (htmlStr === '' || typeof htmlStr !== 'string') {
+        throw new Error('Argument is not a string or empty');
+      }
+      if (htmlStr[0] !== '<') {
+        throw new Error('Wrong string');
+      }
+
+      for (let i = 0; i < htmlStr.length; i++) {
+        switch (htmlStr[i]) {
+          case '<':
+            if (symbols.length > 0) {
+              throw new Error('Invalid tag');
+            }
+            state.namePos.start = i + 1;
+            // add Content which is not Nodes
+            if (state.mode === 'content' && i - state.namePos.end > 3) {
+              const content = htmlStr.slice(state.namePos.end + 2, i).trim();
+
+              if (content.length > 0) {
+                current[current.length - 1].content.push(content);
+              }
+            }
+
+            symbols.add('<');
+            state.mode = 'tag';
+            // create new content Node
+            if (htmlStr[i + 1] !== '/') {
+              state.tagType = 'open';
+              // change current
+              if (current.length > 0) {
+                current = current[current.length - 1].content;
+              }
+              current.push(createNode());
+            }
+            break;
+          case '>':
+            if (symbols.length === 0 || symbols.last !== '<') {
+              throw new Error('Invalid tag');
+            }
+            if (state.tagType === 'close') {
+              const lastOpened = state.nodes.pop();
+              updateCurrent();
+
+              const currentClosing = htmlStr.slice(state.namePos.start + 1, i);
+              if (lastOpened !== currentClosing) {
+                throw new Error('Unclosed tag');
+              }
+              state.tagType = 'open';
+            }
+
+            if (
+              state.tagType === 'open' &&
+              state.mode === 'tag' &&
+              current[current.length - 1].tag === ''
+            ) {
+              const tagName = htmlStr.slice(state.namePos.start, i);
+
+              current[current.length - 1].tag = tagName;
+              state.nodes.push(tagName);
+              updateCurrent();
+            }
+            if (state.mode === 'tag') {
+              state.namePos.end = i - 1;
+            }
+            state.mode = 'content';
+            symbols.clean();
+            break;
+          case '"':
+            if (state.mode !== 'content' && symbols.last === '<') {
+              symbols.add('"');
+            } else if (state.mode !== 'content' && symbols.length > 1 && symbols.last === '"') {
+              symbols.remove();
+              if (state.mode === 'class') {
+                state.namePos.end = i - 1;
+                current[current.length - 1].class = htmlStr
+                  .slice(state.namePos.start, i)
+                  .split(' ');
+                state.mode = 'tag';
+              }
+            }
+            break;
+          case ' ':
+            state.gapPos = i;
+            if (
+              state.mode === 'tag' &&
+              symbols.last === '<' &&
+              current[current.length - 1].tag === ''
+            ) {
+              const tagName = htmlStr.slice(state.namePos.start, i);
+              current[current.length - 1].tag = tagName;
+              state.nodes.push(tagName);
+              updateCurrent();
+              state.namePos.end = i - 1;
+            }
+            break;
+          case '=':
+            if (
+              state.mode === 'tag' &&
+              state.tagType === 'open' &&
+              symbols.last === '<' &&
+              htmlStr.slice(state.gapPos + 1, i) === 'class' &&
+              htmlStr[i + 1] === '"'
+            ) {
+              state.namePos.start = i + 2;
+              state.mode = 'class';
+            }
+            break;
+          case '/':
+            if (state.mode === 'tag' && symbols.last === '<') {
+              state.tagType = 'close';
+            }
+            break;
+          default:
         }
-
-        return nodes.filter(el => el.class != null && el.class.includes(className)).length > 0
-          ? nodes.filter(el => el.class.includes(className))
-          : nodes.reduce((acc, item) => {
-              const res = findNode(className, item.content) || [];
-              return res.length > 0 ? [...acc, ...res] : acc;
-            }, []);
-      };
-
-      return findNode(name, this.children);
+        // console.log(htmlStr[i]);
+        // console.log(state.nodes);
+        // console.log(JSON.stringify(state));
+        // console.log(JSON.stringify(result));
+        // console.log(JSON.stringify(current));
+      }
+      return result;
     },
   };
-  const state = {
-    path: 'children', // current level
-    symbols: [], // stack for checking pairs inside tag
-    nodes: [], // stack for checking tags pairs
-    tag: { start: 0, end: 0, type: 'open' }, // tag name index
-    className: { start: 0, end: 0 }, // class name index
-    lastGapPos: 0,
-    mode: '', // type of parsing (startTag/endTag/class/content)
-  };
-  for (let i = 0; i < htmlStr.length; i++) {
-    let current = result;
-
-    for (const i of state.path.split('.')) {
-      current = current[i];
-    }
-    switch (htmlStr[i]) {
-      case '<':
-        if (state.symbols.length > 0) {
-          throw new Error('Invalid tag');
-        }
-        state.tag.start = i + 1;
-
-        if (state.mode === 'content' && i - state.tag.end > 3) {
-          current.push(htmlStr.slice(state.tag.end + 2, i));
-        }
-
-        state.symbols.push('<');
-        state.mode = 'tag';
-        if (htmlStr[i + 1] !== '/') {
-          state.tag.type = 'open';
-          current.push(createNode());
-        }
-        break;
-      case '>':
-        if (state.symbols.length === 0 || state.symbols[state.symbols.length - 1] !== '<') {
-          throw new Error('Invalid tag');
-        }
-        if (state.tag.type === 'close') {
-          const lastOpened = state.nodes.pop();
-          const currentClosing = htmlStr.slice(state.tag.start + 1, i);
-          if (lastOpened !== currentClosing) {
-            throw new Error('Unclosed tag');
-          }
-          state.tag.type = 'open';
-          state.path =
-            state.path !== 'children'
-              ? state.path.slice(0, state.path.lastIndexOf('.') - 2)
-              : 'children';
-        } else {
-          state.path += `.${current.length - 1}.content`;
-        }
-
-        if (
-          state.tag.type === 'open' &&
-          state.mode === 'tag' &&
-          state.tag.start > state.tag.end &&
-          current[current.length - 1].tag === ''
-        ) {
-          current[current.length - 1].tag = htmlStr.slice(state.tag.start, i);
-          state.nodes.push(htmlStr.slice(state.tag.start, i));
-        }
-        if (state.mode === 'tag') {
-          state.tag.end = i - 1;
-        }
-        state.mode = 'content';
-        state.symbols = [];
-        break;
-      case '"':
-        if (state.mode !== 'content' && state.symbols.length === 1 && state.symbols[0] === '<') {
-          state.symbols.push('"');
-        } else if (
-          state.mode !== 'content' &&
-          state.symbols.length > 1 &&
-          state.symbols[state.symbols.length - 1] === '"'
-        ) {
-          state.symbols.pop();
-          if (state.mode === 'class') {
-            state.className.end = i - 1;
-            current[current.length - 1].class = htmlStr.slice(state.className.start, i).split(' ');
-            state.mode = 'tag';
-          }
-        }
-        break;
-      case ' ':
-        state.lastGapPos = i;
-        if (
-          state.mode === 'tag' &&
-          state.symbols[0] === '<' &&
-          current[current.length - 1].tag === ''
-        ) {
-          current[current.length - 1].tag = htmlStr.slice(state.tag.start, i);
-          state.nodes.push(htmlStr.slice(state.tag.start, i));
-          state.tag.end = i - 1;
-        }
-        break;
-      case '=':
-        if (
-          state.mode === 'tag' &&
-          state.tag.type === 'open' &&
-          state.symbols[0] === '<' &&
-          state.tag.end > state.tag.start &&
-          htmlStr.slice(state.lastGapPos + 1, i) === 'class' &&
-          htmlStr[i + 1] === '"'
-        ) {
-          state.className.start = i + 2;
-          state.mode = 'class';
-        }
-        break;
-      case '/':
-        if (state.mode === 'tag' && state.symbols[0] === '<') {
-          state.tag.type = 'close';
-        }
-        break;
-      default:
-    }
-  }
-  return result;
 };
 
-export default parse;
+export default Parser;
