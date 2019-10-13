@@ -1,4 +1,4 @@
-const Symbols = () => {
+const Tags = () => {
   const _stack = [];
 
   return {
@@ -14,19 +14,11 @@ const Symbols = () => {
     add(item) {
       _stack.push(item);
     },
-    get lastIsOpenTag() {
+    get lastIsStartTag() {
       return this.last === '<';
-    },
-    get lastIsCloseTag() {
-      return [_stack[this.length - 2], _stack[this.length - 1]].join('') === '</';
     },
     removeLast() {
       return _stack.pop();
-    },
-    removeLastTwo() {
-      _stack.pop();
-      _stack.pop();
-      return;
     },
     clean() {
       _stack = [];
@@ -34,4 +26,4 @@ const Symbols = () => {
   };
 };
 
-export default Symbols;
+export default Tags;

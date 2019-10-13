@@ -1,6 +1,8 @@
 import createNode from './create_node';
 import getCurrent from './get_current_node';
+import Tokens from './tokens';
 import Symbols from './symbols';
+import Tags from './tags';
 import getElementsByClassName from './get_elements_by_class_name';
 
 const parser = str => {
@@ -8,7 +10,7 @@ const parser = str => {
   if (htmlStr === '' || typeof htmlStr !== 'string') {
     throw new Error('Argument is not a string or empty');
   }
-  if (htmlStr[0] !== '<') {
+  if (htmlStr.slice(0, 5) !== '<html') {
     throw new Error('Wrong string');
   }
 
@@ -17,7 +19,11 @@ const parser = str => {
     getElementsByClassName,
   };
 
+  const tokens = Tokens();
   const symbols = Symbols();
+  const tags = Tags();
+  const tokensStack = tokens.getTokens(htmlStr);
+  const TAG_NAMES = ['html', 'div', 'head', 'title', 'body'];
 
   const state = {
     nodes: [], // stack for checking tag pairs
@@ -27,114 +33,42 @@ const parser = str => {
     mode: '', // type of parsing (tag/class/content)
   };
 
-  let current = result.children;
+  let currentNode = result.children;
 
   const updateCurrent = () => {
-    current = getCurrent(state.nodes, result.children);
+    currentNode = getCurrent(state.nodes, result.children);
   };
 
-  const isOpenTag = () => state.mode === 'tag' && state.tagType === 'open' && symbols.last === '<';
-
-  const parseHTML = function(str) {
-    for (let i = 0; i < htmlStr.length; i++) {
-      switch (htmlStr[i]) {
-        case '<':
-          if (symbols.length > 0) {
-            throw new Error('Invalid tag');
-          }
-          state.namePos.start = i + 1;
-
-          if (state.mode === 'content' && i - state.namePos.end > 3) {
-            const content = htmlStr.slice(state.namePos.end + 2, i).trim();
-
-            if (content.length > 0) {
-              current[current.length - 1].content.push(content);
-            }
-          }
-
-          symbols.add('<');
-          state.mode = 'tag';
-
-          if (htmlStr[i + 1] !== '/') {
-            state.tagType = 'open';
-
-            if (current.length > 0) {
-              current = current[current.length - 1].content;
-            }
-            current.push(createNode());
-          }
-          break;
-        case '>':
-          if (symbols.length === 0 || symbols.last !== '<') {
-            throw new Error('Invalid tag');
-          }
-          if (state.tagType === 'close') {
-            const lastOpened = state.nodes.pop();
-            updateCurrent();
-
-            const currentClosing = htmlStr.slice(state.namePos.start + 1, i);
-            if (lastOpened !== currentClosing) {
-              throw new Error('Unclosed tag');
-            }
-            state.tagType = 'open';
-          }
-
-          if (isOpenTag() && current[current.length - 1].tag === '') {
-            const tagName = htmlStr.slice(state.namePos.start, i);
-
-            current[current.length - 1].tag = tagName;
-            state.nodes.push(tagName);
-            updateCurrent();
-          }
-          if (state.mode === 'tag') {
-            state.namePos.end = i - 1;
-          }
-          state.mode = 'content';
-          symbols.clean();
-          break;
-        case '"':
-          if (state.mode !== 'content' && symbols.last === '<') {
-            symbols.add('"');
-          } else if (state.mode !== 'content' && symbols.length > 1 && symbols.last === '"') {
-            symbols.remove();
-            if (state.mode === 'class') {
-              state.namePos.end = i - 1;
-              current[current.length - 1].class = htmlStr.slice(state.namePos.start, i).split(' ');
-              state.mode = 'tag';
-            }
-          }
-          break;
-        case ' ':
-          state.gapPos = i;
-          if (isOpenTag() && current[current.length - 1].tag === '') {
-            const tagName = htmlStr.slice(state.namePos.start, i);
-            current[current.length - 1].tag = tagName;
-            state.nodes.push(tagName);
-            updateCurrent();
-            state.namePos.end = i - 1;
-          }
-          break;
-        case '=':
-          if (
-            isOpenTag() &&
-            htmlStr.slice(state.gapPos + 1, i) === 'class' &&
-            htmlStr[i + 1] === '"'
-          ) {
-            state.namePos.start = i + 2;
-            state.mode = 'class';
-          }
-          break;
-        case '/':
-          if (isOpenTag()) {
-            state.tagType = 'close';
-          }
-          break;
-        default:
-      }
+  console.log(tokensStack);
+  return tokensStack.reduce((acc, el, idx, arr) => {
+    if (el === '<') {
+      symbols.add(el);
+      currentNode.push(createNode());
     }
-    return result;
-  };
-  return parseHTML(htmlStr);
+
+    if (TAG_NAMES.includes(el) && symbols.lastIsOpenTag) {
+      currentNode[currentNode.length - 1].tag = el;
+    }
+
+    if (el === '/') {
+      symbols.add(el);
+    }
+
+    if (el === '>' && symbols.lastIsOpenTag) {
+      symbols.removeLast();
+      currentNode = currentNode[currentNode.length - 1].content;
+    }
+    if (el === '>' && !symbols.lastIsOpenTag && symbols.lastIsCloseTag) {
+      symbols.removeLastTwo();
+    }
+    console.log('\nstart iteration');
+    console.log('%c%s', 'color: green;d', el);
+    console.log(symbols.get);
+    console.log(JSON.stringify(currentNode));
+    console.log(JSON.stringify(acc));
+
+    return acc;
+  }, result);
 };
 
 export default parser;
