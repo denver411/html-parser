@@ -1,9 +1,28 @@
-import createNode from './create_node';
-import getCurrent from './get_current_node';
+import { createNode, getCurrent, getElementsByClassName } from './helpers';
 import Tokens from './tokens';
-import Symbols from './symbols';
-import Tags from './tags';
-import getElementsByClassName from './get_elements_by_class_name';
+import Stack from './stack';
+
+const result = {
+  children: [],
+  getElementsByClassName,
+};
+
+const TAG_NAMES = ['html', 'div', 'head', 'title', 'body'];
+const ATTRS = ['class'];
+
+const tokens = Tokens();
+const stack = Stack();
+const states = {
+  content: 'content',
+  attr: 'attr',
+  openTag: 'openTag',
+  closeTag: 'closeTag',
+};
+const state = {
+  mode: states.content, // type of parsing (openTag,closeTag/attr/content)
+  currentNode: result.children,
+  lastAttr: ATTRS[0],
+};
 
 const parser = str => {
   const htmlStr = str.trim();
@@ -14,61 +33,81 @@ const parser = str => {
     throw new Error('Wrong string');
   }
 
-  const result = {
-    children: [],
-    getElementsByClassName,
-  };
-
-  const tokens = Tokens();
-  const symbols = Symbols();
-  const tags = Tags();
   const tokensStack = tokens.getTokens(htmlStr);
-  const TAG_NAMES = ['html', 'div', 'head', 'title', 'body'];
-
-  const state = {
-    nodes: [], // stack for checking tag pairs
-    tagType: 'open', // tag type open/close
-    namePos: { start: 0, end: 0 }, // class/tag name index
-    gapPos: 0,
-    mode: '', // type of parsing (tag/class/content)
-  };
-
-  let currentNode = result.children;
-
   const updateCurrent = () => {
-    currentNode = getCurrent(state.nodes, result.children);
+    state.currentNode = getCurrent(stack.length, result.children);
   };
 
-  console.log(tokensStack);
-  return tokensStack.reduce((acc, el, idx, arr) => {
-    if (el === '<') {
-      symbols.add(el);
-      currentNode.push(createNode());
-    }
+  // console.log(tokensStack);
+  tokensStack.forEach((el, idx, arr) => {
+    const nextEl = tokensStack[idx + 1];
+    const prevEl = tokensStack[idx - 1];
+    const current = state.currentNode;
 
-    if (TAG_NAMES.includes(el) && symbols.lastIsOpenTag) {
-      currentNode[currentNode.length - 1].tag = el;
-    }
+    // console.log('\nstart iteration');
+    // console.log('%c%s', 'color: green;', el);
+    // console.log('%c%s', 'color: red;', `mode before: ${state.mode}`);
+    switch (state.mode) {
+      case states.attr:
+        if (el === '"' && TAG_NAMES.includes(stack.last)) {
+          current[current.length - 1][state.lastAttr] = nextEl;
+          stack.add('"');
+        }
+        if (el === '"' && stack.last === '"') {
+          stack.removeLast();
+          state.mode = states.openTag;
+        }
+        break;
 
-    if (el === '/') {
-      symbols.add(el);
-    }
+      case states.closeTag:
+        if (el === '>' && stack.last !== prevEl) {
+          throw new Error('Unpaired tag');
+        }
+        if (el === '>' && stack.last == prevEl) {
+          stack.removeLast();
+          state.mode = states.content;
+          updateCurrent();
+        }
+        break;
 
-    if (el === '>' && symbols.lastIsOpenTag) {
-      symbols.removeLast();
-      currentNode = currentNode[currentNode.length - 1].content;
-    }
-    if (el === '>' && !symbols.lastIsOpenTag && symbols.lastIsCloseTag) {
-      symbols.removeLastTwo();
-    }
-    console.log('\nstart iteration');
-    console.log('%c%s', 'color: green;d', el);
-    console.log(symbols.get);
-    console.log(JSON.stringify(currentNode));
-    console.log(JSON.stringify(acc));
+      case states.openTag:
+        if (TAG_NAMES.includes(el)) {
+          stack.add(el);
+          current.push(createNode());
+          current[current.length - 1].tag = el;
+        }
+        if (el === '=' && ATTRS.includes(prevEl)) {
+          state.lastAttr = prevEl;
+          state.mode = states.attr;
+        }
+        if (el === '>' && TAG_NAMES.includes(stack.last)) {
+          state.mode = states.content;
+          state.currentNode = current[current.length - 1].content;
+        }
+        if (el === '>' && !TAG_NAMES.includes(stack.last)) {
+          throw new Error('Tag params parse error');
+        }
+        break;
 
-    return acc;
-  }, result);
+      case states.content:
+        if (el === '<') {
+          if (TAG_NAMES.includes(nextEl)) {
+            state.mode = states.openTag;
+          }
+          if (nextEl === '/') {
+            state.mode = states.closeTag;
+          }
+        }
+        break;
+
+      default:
+    }
+    // console.log(stack.get);
+    // console.log('%c%s', 'color: grey;', JSON.stringify(state.currentNode, null, 2));
+    // console.log(JSON.stringify(result.children, null, 2));
+  });
+
+  return result;
 };
 
 export default parser;

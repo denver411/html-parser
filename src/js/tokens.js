@@ -18,30 +18,6 @@ const Tokens = () => ({
 
     return this._stack;
   },
-  // get get() {
-  //   return this._stack;
-  // },
-  // get length() {
-  //   return this._stack.length;
-  // },
-  // get last() {
-  //   return this._stack[this.length - 1];
-  // },
-  // add(item) {
-  //   this._stack.push(item);
-  // },
-  // remove() {
-  //   return this._stack.pop();
-  // },
-  // clean() {
-  //   this._stack = [];
-  // },
 });
 
 export default Tokens;
-
-// const tokens = Tokens();
-// const htmlStr =
-//   '<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta http-equiv="X-UA-Compatible" content="ie=edge" /><title>HTML parser v.0.0.1</title></head><body style="background-color:dimgray"></body></html>';
-
-// console.log(tokens.getTokens(htmlStr));
