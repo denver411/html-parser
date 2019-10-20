@@ -22,6 +22,7 @@ const state = {
   mode: states.content, // type of parsing (openTag,closeTag/attr/content)
   currentNode: result.children,
   lastAttr: ATTRS[0],
+  content: [],
 };
 
 const parser = str => {
@@ -44,9 +45,10 @@ const parser = str => {
     const prevEl = tokensStack[idx - 1];
     const current = state.currentNode;
 
-    // console.log('\nstart iteration');
-    // console.log('%c%s', 'color: green;', el);
-    // console.log('%c%s', 'color: red;', `mode before: ${state.mode}`);
+    console.log('%c%s', 'color: red;', '\nstart iteration');
+    console.log('%c%s', 'color: green;', el);
+    console.log(`mode before: ${state.mode}`);
+    console.log('%c%s', 'color: grey;', JSON.stringify(state.content));
     switch (state.mode) {
       case states.attr:
         if (el === '"' && TAG_NAMES.includes(stack.last)) {
@@ -60,6 +62,10 @@ const parser = str => {
         break;
 
       case states.closeTag:
+        if (prevEl === '/' && !TAG_NAMES.includes(el)) {
+          state.mode = states.content;
+          break;
+        }
         if (el === '>' && stack.last !== prevEl) {
           throw new Error('Unpaired tag');
         }
@@ -93,10 +99,13 @@ const parser = str => {
         if (el === '<') {
           if (TAG_NAMES.includes(nextEl)) {
             state.mode = states.openTag;
-          }
-          if (nextEl === '/') {
+          } else if (nextEl === '/') {
             state.mode = states.closeTag;
+          } else {
+            state.content.push(el);
           }
+        } else {
+          state.content.push(el);
         }
         break;
 
