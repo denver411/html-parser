@@ -26,15 +26,17 @@ export const getCurrent = (depth, start) => {
 export function getElementsByClassName(name) {
   const findNode = (className, nodes) => {
     if (!Array.isArray(nodes)) {
-      return null;
+      return [];
     }
 
-    return nodes.filter(el => el.class != null && el.class.includes(className)).length > 0
-      ? nodes.filter(el => el.class.includes(className))
-      : nodes.reduce((acc, item) => {
-          const res = findNode(className, item.content) || [];
-          return res.length > 0 ? [...acc, ...res] : acc;
-        }, []);
+    return [
+      ...nodes.filter(
+        el =>
+          el.attrs.filter(attr => attr.name === 'class' && attr.value.includes(className)).length >
+          0
+      ),
+      ...nodes.map(item => [...findNode(className, item.children)]),
+    ].flat();
   };
 
   return findNode(name, this.children);
