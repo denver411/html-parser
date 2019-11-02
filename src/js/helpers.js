@@ -1,43 +1,36 @@
-/* eslint-disable no-plusplus */
-export const createNode = (tag = '', className = undefined, content = []) => {
-  if (className == null) {
-    return {
-      tag,
-      content,
-    };
-  }
-  return {
-    tag,
-    className,
-    content,
-  };
+export const splitBy = (str, splitters) => {
+  return str.split('').reduce(
+    (acc, el) => {
+      if (splitters.includes(el) && acc.temp.length === 0) {
+        acc.res.push(el);
+      } else if (splitters.includes(el) && acc.temp.length > 0) {
+        acc.res.push(acc.temp);
+        acc.res.push(el);
+        acc.temp = '';
+      } else {
+        acc.temp += el;
+      }
+
+      return acc;
+    },
+    { temp: '', res: [] }
+  ).res;
 };
 
-export const getCurrent = (depth, start) => {
-  let current = start;
-
-  for (let j = 0; j < depth; j++) {
-    current = current[current.length - 1].content;
-  }
-
-  return current;
-};
-
-export function getElementsByClassName(name) {
-  const findNode = (className, nodes) => {
-    if (!Array.isArray(nodes)) {
-      return [];
+export const getElementsByClassName = (node, name) => {
+  const findNode = (className, [x, ...xs], acc) => {
+    if (x == null) {
+      return acc;
     }
 
-    return [
-      ...nodes.filter(
-        el =>
-          el.attrs.filter(attr => attr.name === 'class' && attr.value.includes(className)).length >
-          0
-      ),
-      ...nodes.map(item => [...findNode(className, item.children)]),
-    ].flat();
+    return findNode(
+      className,
+      [...xs, ...x.children.filter(el => typeof el !== 'string')],
+      x.attrs.some(attr => attr.name === 'class' && attr.value.includes(className))
+        ? [...acc, x]
+        : acc
+    );
   };
 
-  return findNode(name, this.children);
-}
+  return findNode(name, node.children, []);
+};

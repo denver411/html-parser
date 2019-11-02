@@ -1,7 +1,6 @@
-import { createNode, getCurrent, getElementsByClassName } from './helpers';
-import { splitBy } from './split_by';
-import { stack } from './stack';
+import { splitBy, getElementsByClassName } from './helpers';
 import * as Node from './node';
+import * as Attr from './attr';
 
 const TAG_NAMES = [
   'html',
@@ -31,41 +30,20 @@ const STATES = {
 const initialState = (() => {
   const mode = STATES.content;
   const result = Node.make('document');
-  const currentNode = stack.last() || result;
-  const temp = [];
+  const currentNode = null;
+  const currentAttr = null;
+  const currentText = [];
+  const stack = [];
 
   return {
     mode,
     result,
     currentNode,
-    temp,
+    currentAttr,
+    currentText,
     stack,
   };
 })();
-
-const updateCurrentNode = state => {
-  state.currentNode = state.stack.last() || state.stack.result;
-};
-
-const createNewNode = (state, tagName) => {
-  const currentNode = Node.make(tagName);
-
-  state.currentNode.children.push(currentNode);
-  state.stack.add(currentNode);
-};
-
-const createNodeTextContent = state => {
-  const content = state.temp.join('').trim();
-
-  content === '' ? null : state.currentNode.children.push(content);
-  state.temp.length = 0;
-};
-
-const saveTextContent = (state, content) => {
-  content.forEach(text => {
-    state.temp.push(text);
-  });
-};
 
 export const parser = str => {
   if (str === '' || typeof str !== 'string') {
@@ -80,98 +58,120 @@ export const parser = str => {
     // console.log('%c%s', 'color: red;', 'state before');
     // console.log(`mode: ${state.mode}`);
     // console.log('%c%s', 'color: grey;', JSON.stringify(state.currentNode));
-    // console.log(JSON.stringify(state.temp));
-    // console.log(JSON.stringify(state.stack.get()));
+    // console.log('%c%s', 'color: grey;', JSON.stringify(state.currentAttr));
+    // console.log('%c%s', 'color: grey;', JSON.stringify(state.currentText));
+    // console.log('%c%s', 'color: grey;', JSON.stringify(state.stack));
+    // console.log('%c%s', 'color: grey;', JSON.stringify(state));
     switch (state.mode) {
       case STATES.content:
-        if (el === SPLITTERS.openTag) {
-          state.mode = STATES.tag;
-        } else {
-          state.temp.push(el);
-        }
-
-        return state;
+        return el === SPLITTERS.openTag
+          ? { ...state, mode: STATES.tag }
+          : { ...state, currentText: [...state.currentText, el] };
 
       case STATES.tag:
-        if (TAG_NAMES.includes(el) && state.temp.length === 0) {
-          createNewNode(state, el);
-          updateCurrentNode(state);
-          state.mode = STATES.openTag;
-        } else if (TAG_NAMES.includes(el) && state.temp.length > 0) {
-          createNodeTextContent(state);
-          createNewNode(state, el);
-          updateCurrentNode(state);
-          state.mode = STATES.openTag;
+        if (TAG_NAMES.includes(el)) {
+          return {
+            ...state,
+            currentNode: Node.make(el),
+            mode: STATES.openTag,
+          };
         } else if (el === SPLITTERS.slash) {
-          state.mode = STATES.closeTag;
+          return {
+            ...state,
+            mode: STATES.closeTag,
+          };
         } else if (el === SPLITTERS.closeTag) {
-          state.mode = STATES.content;
+          return {
+            ...state,
+            mode: STATES.content,
+          };
         } else {
-          saveTextContent(state, [SPLITTERS.openTag, el]);
-          state.mode = STATES.content;
+          return {
+            ...state,
+            mode: STATES.content,
+            currentText: [...state.currentText, SPLITTERS.openTag, el],
+          };
         }
-
-        return state;
-
-      case STATES.closeTag:
-        if (TAG_NAMES.includes(el) && state.temp.length === 0) {
-          const lastNode = state.stack.removeLast();
-          if (el !== lastNode.tag) {
-            throw new Error(`Unpaired tags ${el} and ${lastNode.tag}`);
-          }
-          updateCurrentNode(state);
-          state.mode = STATES.tag;
-        } else if (TAG_NAMES.includes(el) && state.temp.length > 0) {
-          const lastNode = state.stack.removeLast();
-          if (el !== lastNode.tag) {
-            throw new Error(`Unpaired tags ${el} and ${lastNode.tag}`);
-          }
-          createNodeTextContent(state);
-          updateCurrentNode(state);
-          state.mode = STATES.tag;
-        } else {
-          saveTextContent([SPLITTERS.openTag, SPLITTERS.slash, el]);
-          state.mode = STATES.content;
-        }
-
-        return state;
 
       case STATES.openTag:
         if (el === SPLITTERS.closeTag) {
-          state.mode = STATES.content;
+          return {
+            ...state,
+            mode: STATES.content,
+            stack: [state.currentNode, ...state.stack],
+            currentNode: null,
+          };
         } else if (ATTRS.includes(el)) {
-          state.mode = STATES.attr;
-          Node.addAttr(state.currentNode, { name: el });
+          return {
+            ...state,
+            mode: STATES.attr,
+            currentAttr: Attr.make(el),
+          };
         } else if (el !== SPLITTERS.gap) {
           throw new Error(`Wrong attribute name ${el.toUpperCase()}`);
+        } else {
+          return state;
         }
-        return state;
 
       case STATES.attr:
         if (el === SPLITTERS.eq) {
-          state.mode = STATES.attrNameQuote;
+          return { ...state, mode: STATES.attrNameQuote };
         } else {
           throw new Error(`Wrong symbol ${el.toUpperCase()} after attribute name`);
         }
-        return state;
 
       case STATES.attrNameQuote:
         if (el === SPLITTERS.quote) {
-          state.mode = STATES.attrName;
+          return { ...state, mode: STATES.attrName };
         } else {
           throw new Error(`Wrong symbol ${el.toUpperCase()} before attribute value`);
         }
-        return state;
-
       case STATES.attrName:
         if (el === SPLITTERS.quote) {
-          state.mode = STATES.openTag;
+          return {
+            ...state,
+            mode: STATES.openTag,
+            currentNode: Node.addAttr(state.currentNode, state.currentAttr),
+            currentAttr: null,
+          };
         } else if (SPLITTERS_VALUES.includes(el) && el !== SPLITTERS.gap) {
           throw new Error(`Attribute's name contains ${el}`);
         } else {
-          Node.addAttr(state.currentNode, { value: el });
+          return { ...state, currentAttr: Attr.addValue(state.currentAttr, el) };
         }
-        return state;
+
+      case STATES.closeTag:
+        if (TAG_NAMES.includes(el)) {
+          let [lastNode, parentNode, ...xs] = state.stack;
+
+          if (el !== lastNode.tag) {
+            throw new Error(`Unpaired tags ${el} and ${lastNode.tag}`);
+          }
+          const textContent = state.currentText.join('').trim();
+          if (textContent.length > 0) {
+            lastNode = Node.addChild(lastNode, textContent);
+          }
+          return parentNode == null
+            ? {
+                ...state,
+                stack: [],
+                currentText: [],
+                mode: STATES.tag,
+                result: Node.addChild(state.result, lastNode),
+              }
+            : {
+                ...state,
+                stack: [Node.addChild(parentNode, lastNode), ...xs],
+                currentText: [],
+                mode: STATES.tag,
+              };
+        } else {
+          return {
+            ...state,
+            mode: STATES.content,
+            currentText: [...state.currentText, SPLITTERS.openTag, SPLITTERS.slash, el],
+          };
+        }
 
       default:
         return state;
