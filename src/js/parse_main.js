@@ -1,6 +1,7 @@
-import { splitBy, getElementsByClassName } from './helpers';
+import { splitBy } from './helpers';
 import * as Node from './node';
-import * as Attr from './attr';
+import * as StateMachine from './state_machine';
+export { getElementsByClassName } from './helpers';
 
 const TAG_NAMES = [
   'html',
@@ -27,6 +28,13 @@ const STATES = {
   openTag: 'openTag',
   closeTag: 'closeTag',
 };
+const CONFIG = {
+  ATTRS,
+  SPLITTERS,
+  SPLITTERS_VALUES,
+  STATES,
+  TAG_NAMES,
+};
 const initialState = (() => {
   const mode = STATES.content;
   const result = Node.make('document');
@@ -45,7 +53,7 @@ const initialState = (() => {
   };
 })();
 
-export const parser = str => {
+export const parse = str => {
   if (str === '' || typeof str !== 'string') {
     throw new Error('Argument is not a string or empty');
   }
@@ -64,114 +72,25 @@ export const parser = str => {
     // console.log('%c%s', 'color: grey;', JSON.stringify(state));
     switch (state.mode) {
       case STATES.content:
-        return el === SPLITTERS.openTag
-          ? { ...state, mode: STATES.tag }
-          : { ...state, currentText: [...state.currentText, el] };
+        return StateMachine.fromContentState(el, state, CONFIG);
 
       case STATES.tag:
-        if (TAG_NAMES.includes(el)) {
-          return {
-            ...state,
-            currentNode: Node.make(el),
-            mode: STATES.openTag,
-          };
-        } else if (el === SPLITTERS.slash) {
-          return {
-            ...state,
-            mode: STATES.closeTag,
-          };
-        } else if (el === SPLITTERS.closeTag) {
-          return {
-            ...state,
-            mode: STATES.content,
-          };
-        } else {
-          return {
-            ...state,
-            mode: STATES.content,
-            currentText: [...state.currentText, SPLITTERS.openTag, el],
-          };
-        }
+        return StateMachine.fromTagState(el, state, CONFIG);
 
       case STATES.openTag:
-        if (el === SPLITTERS.closeTag) {
-          return {
-            ...state,
-            mode: STATES.content,
-            stack: [state.currentNode, ...state.stack],
-            currentNode: null,
-          };
-        } else if (ATTRS.includes(el)) {
-          return {
-            ...state,
-            mode: STATES.attr,
-            currentAttr: Attr.make(el),
-          };
-        } else if (el !== SPLITTERS.gap) {
-          throw new Error(`Wrong attribute name ${el.toUpperCase()}`);
-        } else {
-          return state;
-        }
+        return StateMachine.fromOpenTagState(el, state, CONFIG);
 
       case STATES.attr:
-        if (el === SPLITTERS.eq) {
-          return { ...state, mode: STATES.attrNameQuote };
-        } else {
-          throw new Error(`Wrong symbol ${el.toUpperCase()} after attribute name`);
-        }
+        return StateMachine.fromAttrState(el, state, CONFIG);
 
       case STATES.attrNameQuote:
-        if (el === SPLITTERS.quote) {
-          return { ...state, mode: STATES.attrName };
-        } else {
-          throw new Error(`Wrong symbol ${el.toUpperCase()} before attribute value`);
-        }
+        return StateMachine.fromAttrNameQuoteState(el, state, CONFIG);
+
       case STATES.attrName:
-        if (el === SPLITTERS.quote) {
-          return {
-            ...state,
-            mode: STATES.openTag,
-            currentNode: Node.addAttr(state.currentNode, state.currentAttr),
-            currentAttr: null,
-          };
-        } else if (SPLITTERS_VALUES.includes(el) && el !== SPLITTERS.gap) {
-          throw new Error(`Attribute's name contains ${el}`);
-        } else {
-          return { ...state, currentAttr: Attr.addValue(state.currentAttr, el) };
-        }
+        return StateMachine.fromAttrName(el, state, CONFIG);
 
       case STATES.closeTag:
-        if (TAG_NAMES.includes(el)) {
-          let [lastNode, parentNode, ...xs] = state.stack;
-
-          if (el !== lastNode.tag) {
-            throw new Error(`Unpaired tags ${el} and ${lastNode.tag}`);
-          }
-          const textContent = state.currentText.join('').trim();
-          if (textContent.length > 0) {
-            lastNode = Node.addChild(lastNode, textContent);
-          }
-          return parentNode == null
-            ? {
-                ...state,
-                stack: [],
-                currentText: [],
-                mode: STATES.tag,
-                result: Node.addChild(state.result, lastNode),
-              }
-            : {
-                ...state,
-                stack: [Node.addChild(parentNode, lastNode), ...xs],
-                currentText: [],
-                mode: STATES.tag,
-              };
-        } else {
-          return {
-            ...state,
-            mode: STATES.content,
-            currentText: [...state.currentText, SPLITTERS.openTag, SPLITTERS.slash, el],
-          };
-        }
+        return StateMachine.fromCloseTagState(el, state, CONFIG);
 
       default:
         return state;
