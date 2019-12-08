@@ -5,7 +5,7 @@ const testData =
 // const testData =
 //   '<html lang="en"><head class="head-class head-class__mod"><title>HTML </>/" body parser v.0.0.1</title></head><body style="background-color:gray" class="body-class"></body></html>';
 // const testData =
-// '<html><head class="head-class"><title>HTML parser v.0.0.1</title>text text text</head></html>';
+//   '<html><head class="head-class"><title>HTML parser v.0.0.1</title>text text text</head></html>';
 const res = Parser.parse(testData);
 console.log(res);
 const titleEls = Parser.getElementsByClassName(res, 'title');

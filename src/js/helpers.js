@@ -1,22 +1,3 @@
-export const splitBy = (str, splitters) => {
-  return str.split('').reduce(
-    (acc, el) => {
-      if (splitters.includes(el) && acc.temp.length === 0) {
-        acc.res.push(el);
-      } else if (splitters.includes(el) && acc.temp.length > 0) {
-        acc.res.push(acc.temp);
-        acc.res.push(el);
-        acc.temp = '';
-      } else {
-        acc.temp += el;
-      }
-
-      return acc;
-    },
-    { temp: '', res: [] }
-  ).res;
-};
-
 export const getElementsByClassName = (node, name) => {
   const findNode = (className, [x, ...xs], acc) => {
     if (x == null) {
@@ -33,4 +14,30 @@ export const getElementsByClassName = (node, name) => {
   };
 
   return findNode(name, node.children, []);
+};
+
+export const tokenize = (str, tokens) => {
+  const splitters = Object.entries(tokens).reduce(
+    (acc, [value, key]) => ({ ...acc, [key]: value }),
+    {}
+  );
+
+  return str.split('').reduce(
+    (acc, el) => {
+      if (splitters[el] != null) {
+        if (acc.temp.length === 0) {
+          acc.res.push({ name: splitters[el], value: el });
+        } else {
+          acc.res.push({ name: splitters.content, value: acc.temp });
+          acc.res.push({ name: splitters[el], value: el });
+          acc.temp = '';
+        }
+      } else {
+        acc.temp += el;
+      }
+
+      return acc;
+    },
+    { temp: '', res: [] }
+  ).res;
 };
